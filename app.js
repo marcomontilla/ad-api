@@ -1,10 +1,12 @@
 require("dotenv").config();
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const https = require("https");
 const fs = require("fs");
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
 const options = {
   key: fs.readFileSync("./certs/key.pem"),

@@ -22,8 +22,15 @@ const poolConnect = pool.connect();
 
 // Middleware to protect routes
 const authenticateToken = (req, res, next) => {
+  // First, check the cookies for the token
+  const tokenFromCookie = req.cookies && req.cookies.token;
+
+  // If no token in cookies, check the headers
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const tokenFromHeader = authHeader && authHeader.split(" ")[1];
+
+  // Determine which token to use
+  const token = tokenFromCookie || tokenFromHeader;
 
   if (!token) return res.sendStatus(401);
 
@@ -34,23 +41,11 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// API endpoint to get data, optionally filtered by taskid (protected by JWT)
-router.get("/", authenticateToken, async (req, res) => {
-  const { taskid } = req.query;
-
+// Reusable function for querying the database
+const queryDatabase = async (query, res) => {
   try {
     await poolConnect; // Ensure the pool has connected
-
-    let result;
-    if (taskid) {
-      // If a taskid is provided, filter the data by taskid
-      result = await pool.request()
-        .query`SELECT * FROM MonitorLog WHERE taskid = ${taskid}`;
-    } else {
-      // If no taskid is provided, return all data
-      result = await pool.request().query`SELECT * FROM MonitorLog`;
-    }
-
+    const result = await query;
     if (result.recordset.length > 0) {
       res.json(result.recordset); // Send the results as JSON
     } else {
@@ -60,66 +55,46 @@ router.get("/", authenticateToken, async (req, res) => {
     console.error(err);
     res.status(500).send("Something went wrong!");
   }
+};
+
+// API endpoint to get data, optionally filtered by taskid (protected by JWT)
+router.get("/", authenticateToken, async (req, res) => {
+  const { taskid } = req.query;
+  const query = taskid
+    ? pool
+        .request()
+        .input("taskid", sql.Int, taskid)
+        .query("SELECT * FROM MonitorLog WHERE taskid = @taskid")
+    : pool.request().query("SELECT * FROM MonitorLog");
+
+  await queryDatabase(query, res);
 });
 
 // API endpoint to get data by status failed (protected by JWT)
 router.get("/failed", authenticateToken, async (req, res) => {
-  try {
-    await poolConnect;
-
-    let result = await pool.request()
-      .query`SELECT * FROM MonitorLog WHERE status IS NULL`;
-
-    if (result.recordset.length > 0) {
-      res.json(result.recordset); // Send the results as JSON
-    } else {
-      res.status(404).send("No data found.");
-    }
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Something went wrong!");
-  }
+  const query = pool
+    .request()
+    .query("SELECT * FROM MonitorLog WHERE status IS NULL");
+  await queryDatabase(query, res);
 });
 
 // API endpoint to get data by status completed (protected by JWT)
 router.get("/completed", authenticateToken, async (req, res) => {
-  try {
-    await poolConnect;
-
-    let result = await pool.request()
-      .query`SELECT * FROM MonitorLog WHERE status = 'COMPLETED'`;
-
-    if (result.recordset.length > 0) {
-      res.json(result.recordset); // Send the results as JSON
-    } else {
-      res.status(404).send("No data found.");
-    }
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Something went wrong!");
-  }
+  const query = pool
+    .request()
+    .query("SELECT * FROM MonitorLog WHERE status = 'COMPLETED'");
+  await queryDatabase(query, res);
 });
 
-// API endpoint to get data, optionally filtered by taskid (protected by JWT)
+// API endpoint to get data filtered by brand (protected by JWT)
 router.get("/:brand", authenticateToken, async (req, res) => {
   const { brand } = req.params;
+  const query = pool
+    .request()
+    .input("brand", sql.VarChar, brand)
+    .query("SELECT * FROM MonitorLog WHERE brand = @brand");
 
-  try {
-    await poolConnect; // Ensure the pool has connected
-
-    let result;
-    result = await pool.request()
-      .query`SELECT * FROM MonitorLog WHERE brand = ${brand}`;
-
-    if (result.recordset.length > 0) {
-      res.json(result.recordset); // Send the results as JSON
-    } else {
-      res.status(404).send("No data found.");
-    }
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Something went wrong!");
-  }
+  await queryDatabase(query, res);
 });
 
 module.exports = router;

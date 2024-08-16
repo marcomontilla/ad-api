@@ -1,7 +1,6 @@
 const express = require("express");
 const { Client } = require("ldapts");
 const jwt = require("jsonwebtoken");
-
 const router = express.Router();
 
 // LDAP configuration
@@ -33,7 +32,7 @@ const authenticateUser = async (username, password) => {
     await client.unbind();
 
     if (result.searchEntries.length === 0) {
-      throw new Error("User not authorized");
+      throw new Error("User is not authorized to access this system");
     }
 
     return true;
@@ -48,15 +47,24 @@ router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
     await authenticateUser(username, password);
 
     // Generate a JWT token
     const token = jwt.sign({ username }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRATION,
     });
+
+    // Optionally set token in a cookie
+    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+
     res.json({ token });
   } catch (error) {
-    res.status(401).json({ message: "Invalid credentials or unauthorized access" });
+    console.error("Login error:", error.message);
+    res.status(401).json({ message: error.message || "Invalid credentials or unauthorized access" });
   }
 });
 
