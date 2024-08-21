@@ -1,5 +1,5 @@
 const routesDescriptions = {
-  "/login": "Authenticate user and return JWT token",
+  "/users/login": "Authenticate user and return JWT token",
   "/tasks/": "Get data, optionally filtered by taskid",
   "/tasks/failed": "Get tasks with a failed status",
   "/tasks/completed": "Get tasks with a completed status",

@@ -17,14 +17,14 @@ const port = process.env.API_PORT || 3000;
 const ipAddress = process.env.API_HOST || "localhost";
 
 // Import routes
-const loginRoutes = require("./routes/login");
+const usersRoutes = require("./routes/users");
 const tasksRoutes = require("./routes/tasks");
 
 // Import the route logger
 const logRoutes = require("./utils/logRoutes");
 
 // Use the routes
-app.use(loginRoutes); // No prefix for login
+app.use("/users", usersRoutes); // Prefix for all user-related routes
 app.use("/tasks", tasksRoutes); // Prefix for all task-related routes
 
 // Log the available routes
